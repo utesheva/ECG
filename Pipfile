@@ -4,6 +4,12 @@ verify_ssl = true
 name = "pypi"
 
 [packages]
+mne = "*"
+pywavelets = "*"
+matplotlib = "*"
+pyqt5 = "==5.15.10"
+spkit = "*"
+setuptools = "*"
 
 [dev-packages]
 

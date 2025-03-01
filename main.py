@@ -4,37 +4,28 @@ import mne
 import scipy.signal as signal
 import numpy as np
 import pdb
-#pdb.set_trace()
+import spkit as sp
 
 NAME = '2.edf'
 
 record = mne.io.read_raw_edf(NAME, preload=True)
-#record.plot(duration=10.0)
 info = record.info
 channels = record.ch_names
 print(info)
 print(channels)
 record_1, times=record.get_data(return_times=True, picks='ECG 1')
-print("Record_1\n")
-print(record_1)
-# REALIZATION WITH .DAT
 
-# Шум у нас реальный,  вносить не надо
-#db = 10
-#noise = np.random.normal(0, db, len(record))
-#record_1 = noise + record
+cA, cD = pywt.dwt(record_1[0], 'db8')
+cA1 = pywt.threshold(cA, 1)
+cD1 = pywt.threshold(cD, 2)
+record_filtered2 = pywt.idwt(cA1, cD1, 'db8')
 
-
-w = pywt.Wavelet('db8')
-d_lo, d_hi, r_lo, r_hi = w.filter_bank
-print ("R_lo\n",  r_lo)
-plt.plot(times, record_1[0], label='Before')
-y_filtered = signal.convolve(record_1[0], r_lo, mode='same')
-
-#plt.plot(record, noise, label = 'noise')
-#plt.plot(record_1.index, record_1.values, label='before')
-plt.plot(times, y_filtered, label='after')
-plt.title('db8')
+wav = sp.wavelet_filtering(record_1[0], wv='db8', threshold='optimal',
+                           wpd_mode='periodization', WPD=True)
+wav2 = sp.wavelet_filtering(wav, wv='db8', threshold='optimal')
+plt.plot(times, record_1[0], label = 'Before')
+plt.plot(times, wav, label = 'After')
+plt.plot(times, wav2, label = 'After 2')
 plt.legend()
 plt.show()
 
