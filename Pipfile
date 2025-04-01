@@ -10,6 +10,7 @@ matplotlib = "*"
 pyqt5 = "==5.15.10"
 spkit = "*"
 setuptools = "*"
+py-ecg-detectors = "*"
 
 [dev-packages]
 
