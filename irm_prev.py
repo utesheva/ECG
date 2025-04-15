@@ -5,6 +5,7 @@ import scipy.signal as signal
 import numpy as np
 import pdb
 from QRS import Pan_Tompkins_QRS, heart_rate
+from scipy.stats import pearsonr
 
 NAME = 'Rh10010.edf'
 FS = 250
@@ -23,60 +24,55 @@ def preprocess(syg):
     syg_butter = signal.sosfiltfilt(butter, syg)
     iir_b, iir_a = signal.iirnotch(50, Q=50, fs=FS)
     syg_iir = signal.filtfilt(iir_b, iir_a, syg_butter)
-    butter2 = signal.butter(5, 2, 'highpass', fs=FS, output='sos')    
-    syg_butter2 = signal.sosfiltfilt(butter2, syg_iir)
+    butter2 = signal.butter(2, 2, 'highpass', fs=FS, output='sos')    
+    syg_butter2 = signal.sosfiltfilt(butter, syg_iir)
     return syg_butter2
 
-def find_similar_beats(sig, peaks, cur, xcorr_thr, nHB_thr, HB_start):
+def find_similar_beats(sig, peaks, cur, xcorr_thr, nHB_thr):
     beat_len = len(cur)
-    similar = []
-    for i, hb in enumerate(HB_start):
-        start = hb
-        end = min(start + beat_len, len(sig))
-    
+    similar = [] 
+    for peak in peaks:
+        start = max(0, peak - beat_len // 2)
+        end = min(len(sig), start + beat_len)
         beat = sig[start:end]
-        xcorr = np.correlate(cur, beat, 'full')
-        if xcorr[beat_len - 1] >= xcorr_thr* np.max(np.correlate(cur, cur)):
-            similar.append(beat)
-        if len(similar) >= nHB_thr:
-            break
+        if len(beat) == len(cur):
+            corr = pearsonr(cur, beat)[0]
+            print(corr)
+            if corr > xcorr_thr:
+                similar.append(beat)
+                if len(similar) >= nHB_thr:
+                    break
 
-    return similar
+    return np.array(similar) if similar else np.array([cur])
 
 def generate_AS(sig, peaks):
     xcorr_thr = 0.97
     nHB_thr = 7
+
     aux_signal = np.zeros_like(sig)
-    HB_start = [max(0, peak - int(0.25 * np.median(np.diff(peaks)))) for peak in peaks][1:]
-    for i, hb in enumerate(HB_start):
-        nHB = 0
-        start = hb
-        end = len(sig) if i + 1 == len(HB_start) else HB_start[i+1]
-        cur = sig[start:end]
-        similar_beats = find_similar_beats(sig, peaks, cur, xcorr_thr, nHB_thr, HB_start)
-        nHB = len(similar_beats)
-        
+    nHB = 0
+    for i, peak in enumerate(peaks):
         while nHB < nHB_thr and nHB != 1:
+            start = max(0, peak - int(0.25 * np.median(np.diff(peaks))))
+            if i + 1 < len(peaks):
+                end = peaks[i+1]
+            else:
+                end = len(sig)
+            cur = sig[start:end]
+            similar_beats = find_similar_beats(sig, peaks, cur, xcorr_thr, nHB_thr)
+            nHB = len(similar_beats)
             if xcorr_thr >= 0.91:
                 xcorr_thr -= 0.02
             else:
                 nHB_thr -= 3
                 xcorr_thr = 0.97
-            similar_beats = find_similar_beats(sig, peaks, cur, xcorr_thr, nHB_thr, HB_start)
-            nHB = len(similar_beats)
-
         if nHB >= 11:
             MA = 5
         else:
-            MA = 15
-
+            MA = 16 - nHB
         aux_hb = np.mean(similar_beats, axis=0)
-        r = int(0.25 * np.median(np.diff(peaks)))
-        segment1 = int(max(0, r - int(0.04*FS)))
-        segment2 = int(min(len(aux_hb), r + int(0.04*FS)))
-        aux_hb[:segment1] =np.convolve(aux_hb[:segment1], np.ones(MA)/MA, mode='same')
-        aux_hb[segment2:] = np.convolve(aux_hb[segment2:], np.ones(MA)/MA, mode='same')
-        aux_signal[start:end] = aux_hb[:end-start]
+        aux_hb = np.convolve(aux_hb, np.ones(MA)/MA, mode='same')
+        aux_signal[start:end] = aux_hb
     return aux_signal
 
 def irm(sig, peaks, cnt=0):
@@ -89,6 +85,7 @@ def irm(sig, peaks, cnt=0):
     noise_butter = signal.sosfiltfilt(butter, noise)
     
     ob = sig - noise_butter
+    
     if cnt == 0:
         signal_power = np.sum(np.square(sig ** 2))
         noise_power = np.sum(np.square(noise_butter ** 2))
@@ -106,23 +103,18 @@ def irm(sig, peaks, cnt=0):
     return ob
 
 
-def postprocess(sig_before, sig_irm):
-    butter = signal.butter(5, 2, 'lowpass', fs=FS, output='sos')
-    low = signal.sosfiltfilt(butter, sig_before)
-    return sig_irm + low
+def postprocess(sig):
+    butter = signal.butter(2, 2, 'lowpass', fs=FS, output='sos')
+    low = signal.sosfiltfilt(butter, sig)
+    return sig + low
 
 if __name__ == '__main__':
-
-    noise = mne.io.read_raw_edf('Noise.edf', preload=True)
-    noise_1, _ = record.get_data(return_times=True)
-
     preprocessed = np.array(preprocess(record_1[0][:5000]))
 
     QRS_detector = Pan_Tompkins_QRS(FS)
     QRS_detector.solve(preprocessed)
 
     hr = heart_rate(preprocessed, FS)
-
     result = hr.find_r_peaks()
     result = np.array(result)
 
@@ -132,18 +124,15 @@ if __name__ == '__main__':
     print("Heart Rate", heartRate, "BPM")
 
     irm_signal = irm(preprocessed, result)
-    postprocessed = postprocess(record_1[0][:5000], irm_signal)
-
+    postprocessed = postprocess(irm_signal)
     plt.xticks(np.arange(0, len(preprocessed)+1, 150))
     plt.xlabel('Samples')
     plt.ylabel('MLIImV')
     plt.plot(record_1[0][:5000], label = 'Before', color='grey')
-    plt.plot(preprocessed, label = 'Preprocessed', color='#75bbfd')
+    plt.plot(preprocessed, label = 'Preprocessed', color='blue')
     plt.scatter(result, preprocessed[result], color='red', s=50, marker='*')
-
-    plt.plot(irm_signal, label='IRM stage', color='#0485d1')
-    plt.plot(postprocessed, label='Final', color='blue')
+    plt.plot(irm_signal, label = 'IRM stage', color='green')
+    plt.plot(postprocessed)
     plt.legend()
-
     plt.show()
 
