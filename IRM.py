@@ -5,16 +5,18 @@ import scipy.signal as signal
 import numpy as np
 import pdb
 from QRS import Pan_Tompkins_QRS, heart_rate
+import sys 
 
-NAME = 'Rh10010.edf'
-FS = 250
+NAME = sys.argv[1]
+RECORD = mne.io.read_raw_edf(NAME, preload=True)
+INFO = RECORD.info
+FS = int(INFO['sfreq'])
 
-record = mne.io.read_raw_edf(NAME, preload=True)
-info = record.info
-channels = record.ch_names
-print(info)
+channels = RECORD.ch_names
+print(INFO)
 
-record_1, times=record.get_data(return_times=True, picks='sig')
+
+record_1, times = RECORD.get_data(return_times=True, picks=channels[0])
 
 
 def preprocess(syg):
@@ -74,8 +76,18 @@ def generate_AS(sig, peaks):
         r = int(0.25 * np.median(np.diff(peaks)))
         segment1 = int(max(0, r - int(0.04*FS)))
         segment2 = int(min(len(aux_hb), r + int(0.04*FS)))
+        print("Segments:", segment1, " ", segment2, "\n")
+#        pdb.set_trace()
         aux_hb[:segment1] =np.convolve(aux_hb[:segment1], np.ones(MA)/MA, mode='same')
-        aux_hb[segment2:] = np.convolve(aux_hb[segment2:], np.ones(MA)/MA, mode='same')
+        # Избегаем Value Error, если остаток блока меньше окна усреднения
+        # Также не проводим свертку пустого блока
+        if segment2 < aux_hb.size:
+            aux_aux_hb = np.convolve(aux_hb[segment2:], np.ones(MA)/MA, mode='same')
+            lng = aux_hb[segment2:].size
+            if lng >= MA:
+                aux_hb[segment2:] = aux_aux_hb
+            else:
+                aux_hb[segment2:] = aux_aux_hb[:lng]
         aux_signal[start:end] = aux_hb[:end-start]
     return aux_signal
 
@@ -113,9 +125,6 @@ def postprocess(sig_before, sig_irm):
 
 if __name__ == '__main__':
 
-    noise = mne.io.read_raw_edf('Noise.edf', preload=True)
-    noise_1, _ = record.get_data(return_times=True)
-
     preprocessed = np.array(preprocess(record_1[0][:5000]))
 
     QRS_detector = Pan_Tompkins_QRS(FS)
@@ -137,12 +146,12 @@ if __name__ == '__main__':
     plt.xticks(np.arange(0, len(preprocessed)+1, 150))
     plt.xlabel('Samples')
     plt.ylabel('MLIImV')
-    plt.plot(record_1[0][:5000], label = 'Before', color='grey')
-    plt.plot(preprocessed, label = 'Preprocessed', color='#75bbfd')
-    plt.scatter(result, preprocessed[result], color='red', s=50, marker='*')
+    plt.plot(record_1[0][:5000], label = 'Исходный сигнал', color='red')
+    plt.plot(preprocessed, label = 'Первый этап', color='#a7a6aa')
+    plt.scatter(result, preprocessed[result], color='green', s=50, marker='*', label='R-пики')
 
-    plt.plot(irm_signal, label='IRM stage', color='#0485d1')
-    plt.plot(postprocessed, label='Final', color='blue')
+    plt.plot(irm_signal, label='Второй этап', color='#57565c')
+    plt.plot(postprocessed, label='Результат', color='blue')
     plt.legend()
 
     plt.show()

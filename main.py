@@ -1,33 +1,31 @@
+"""DB-8 method"""
 import pywt
 from matplotlib import pyplot as plt
 import mne
-import scipy.signal as signal
 import numpy as np
-import pdb
 import spkit as sp
-from ser import filtered
+import sys
 
-NAME = 'Rh10010.edf'
+NAME = sys.argv[1]
+RECORD = mne.io.read_raw_edf(NAME, preload=True)
+INFO = RECORD.info
+FS = int(INFO['sfreq'])
 
-record = mne.io.read_raw_edf(NAME, preload=True)
-info = record.info
-channels = record.ch_names
-print(info)
-print(channels)
-record_1, times=record.get_data(return_times=True, picks='sig')
-'''
-wav = sp.wavelet_filtering(record_1[0], wv='db8', threshold='optimal',
+channels = RECORD.ch_names
+
+record_1, times=RECORD.get_data(return_times=True, picks=channels[0])
+
+wav = sp.wavelet_filtering(record_1[0][:5000], wv='db8', threshold='optimal',
                            wpd_mode='periodization', WPD=True)
-wav2 = sp.wavelet_filtering(wav, wv='db8', threshold='optimal')
-wav3 = sp.wavelet_filtering(record_1[0], wv='db8', threshold='sd')
 '''
-wav = filtered(record_1[0])
-plt.plot(times, record_1[0], label = 'Before')
-plt.plot(times, wav, label = 'After')
+wav2 = sp.wavelet_filtering(wav, wv='db8', threshold='optimal',
+                            wpd_mode='periodization', WPD=True)
 '''
-plt.plot(times, wav2, label = 'After 2')
-plt.plot(times, wav3, label = 'After 3')
-'''
+plt.xticks(np.arange(0, 5000, 150))
+plt.xlabel('Samples')
+plt.ylabel('MLIImV')
+plt.plot(record_1[0][:5000], label = 'Исходный сигнал', color='red')
+plt.plot(wav, label = 'Сигнал после фильтрации', color='blue')
 plt.legend()
 plt.show()
 
