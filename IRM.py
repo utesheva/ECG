@@ -7,20 +7,7 @@ import pdb
 from QRS import Pan_Tompkins_QRS, heart_rate
 import sys 
 
-NAME = sys.argv[1]
-RECORD = mne.io.read_raw_edf(NAME, preload=True)
-INFO = RECORD.info
-FS = int(INFO['sfreq'])
-
-channels = RECORD.ch_names
-print(INFO)
-
-
-record_1, times = RECORD.get_data(return_times=True, picks=channels[0])
-
-
-def preprocess(syg):
-    global FS
+def preprocess(syg, FS):
     butter = signal.butter(2, 100, 'lowpass', fs=FS, output='sos')
     syg_butter = signal.sosfiltfilt(butter, syg)
     iir_b, iir_a = signal.iirnotch(50, Q=50, fs=FS)
@@ -32,6 +19,8 @@ def preprocess(syg):
 def find_similar_beats(sig, peaks, cur, xcorr_thr, nHB_thr, HB_start):
     beat_len = len(cur)
     similar = []
+    if cur.size == 0:
+        return similar
     for i, hb in enumerate(HB_start):
         start = hb
         end = min(start + beat_len, len(sig))
@@ -45,7 +34,7 @@ def find_similar_beats(sig, peaks, cur, xcorr_thr, nHB_thr, HB_start):
 
     return similar
 
-def generate_AS(sig, peaks):
+def generate_AS(sig, peaks, FS):
     xcorr_thr = 0.97
     nHB_thr = 7
     aux_signal = np.zeros_like(sig)
@@ -72,13 +61,16 @@ def generate_AS(sig, peaks):
         else:
             MA = 15
 
+        if nHB == 0:
+            continue
+
         aux_hb = np.mean(similar_beats, axis=0)
         r = int(0.25 * np.median(np.diff(peaks)))
         segment1 = int(max(0, r - int(0.04*FS)))
         segment2 = int(min(len(aux_hb), r + int(0.04*FS)))
-        print("Segments:", segment1, " ", segment2, "\n")
-#        pdb.set_trace()
-        aux_hb[:segment1] =np.convolve(aux_hb[:segment1], np.ones(MA)/MA, mode='same')
+        #print("Segments:", segment1, " ", segment2, "\n")
+        aux_MA=min(MA,len(aux_hb))
+        aux_hb[:segment1] =np.convolve(aux_hb[:segment1], np.ones(aux_MA)/aux_MA, mode='same')
         # Избегаем Value Error, если остаток блока меньше окна усреднения
         # Также не проводим свертку пустого блока
         if segment2 < aux_hb.size:
@@ -91,10 +83,8 @@ def generate_AS(sig, peaks):
         aux_signal[start:end] = aux_hb[:end-start]
     return aux_signal
 
-def irm(sig, peaks, cnt=0):
-    global FS
-    print('Iteration', cnt)
-    auxilary_signal = generate_AS(sig, peaks)
+def irm(sig, peaks, FS, cnt=0):
+    auxilary_signal = generate_AS(sig, peaks, FS)
 
     noise = sig - auxilary_signal
     butter = signal.butter(2, 10, 'highpass', fs=FS, output='sos')
@@ -106,26 +96,59 @@ def irm(sig, peaks, cnt=0):
         noise_power = np.sum(np.square(noise_butter ** 2))
         snr = 10 * np.log10(signal_power / noise_power)
         print('SNR', snr)
-        if snr > 16: 
+        if snr > 16:
             pass
         elif snr > 8:
-            ob = irm(ob, peaks, cnt=1)
+            ob = irm(ob, peaks, FS, cnt=1)
         else:
-            ob = irm(ob, peaks, cnt=2)
+            ob = irm(ob, peaks, FS, cnt=2)
     elif cnt == 2:
-        return irm(ob, peaks, cnt=1)
+        return irm(ob, peaks, FS, cnt=1)
 
     return ob
 
 
-def postprocess(sig_before, sig_irm):
+def postprocess(sig_before, sig_irm, FS):
     butter = signal.butter(5, 2, 'lowpass', fs=FS, output='sos')
     low = signal.sosfiltfilt(butter, sig_before)
     return sig_irm + low
 
-if __name__ == '__main__':
 
-    preprocessed = np.array(preprocess(record_1[0][:5000]))
+def main(record, freq):
+    preprocessed = np.array(preprocess(record, freq))
+
+    QRS_detector = Pan_Tompkins_QRS(freq)
+    QRS_detector.solve(preprocessed)
+
+    hr = heart_rate(preprocessed, freq)
+
+    result = hr.find_r_peaks()
+    result1 = []
+    for i in range(len(result)-1):
+        if result[i] != result[i+1]:
+            result1.append(result[i])
+    result = np.array(result1)
+
+    result = result[result > 0]
+
+    heartRate = (60*freq)/np.average(np.diff(result[1:]))
+    print("Heart Rate", heartRate, "BPM")
+
+    irm_signal = irm(preprocessed, result, freq)
+    postprocessed = postprocess(record, irm_signal, freq)
+    return postprocessed
+
+if __name__ == '__main__':
+    NAME = sys.argv[1]
+    RECORD = mne.io.read_raw_edf(NAME, preload=True)
+    INFO = RECORD.info
+    FS = int(INFO['sfreq'])
+
+    channels = RECORD.ch_names
+    print(INFO)
+
+    record_1, times = RECORD.get_data(return_times=True, picks=channels[0])
+    preprocessed = np.array(preprocess(record_1[0][:5000], FS))
 
     QRS_detector = Pan_Tompkins_QRS(FS)
     QRS_detector.solve(preprocessed)
@@ -133,15 +156,19 @@ if __name__ == '__main__':
     hr = heart_rate(preprocessed, FS)
 
     result = hr.find_r_peaks()
-    result = np.array(result)
+    result1 = []
+    for i in range(len(result)-1):
+        if result[i] != result[i+1]:
+            result1.append(result[i])
+    result = np.array(result1)
 
     result = result[result > 0]
 
     heartRate = (60*FS)/np.average(np.diff(result[1:]))
     print("Heart Rate", heartRate, "BPM")
 
-    irm_signal = irm(preprocessed, result)
-    postprocessed = postprocess(record_1[0][:5000], irm_signal)
+    irm_signal = irm(preprocessed, result, FS)
+    postprocessed = postprocess(record_1[0][:5000], irm_signal, FS)
 
     plt.xticks(np.arange(0, len(preprocessed)+1, 150))
     plt.xlabel('Samples')
