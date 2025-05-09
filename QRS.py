@@ -1,11 +1,5 @@
-import pywt
-from matplotlib import pyplot as plt
-import mne
 import scipy.signal as sg
 import numpy as np
-import pdb
-from ecgdetectors import Detectors
-import pandas as pd
 
 class Pan_Tompkins_QRS():
     def __init__(self, fs):

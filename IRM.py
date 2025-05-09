@@ -1,20 +1,20 @@
-import pywt
 from matplotlib import pyplot as plt
 import mne
 import scipy.signal as signal
 import numpy as np
-import pdb
 from QRS import Pan_Tompkins_QRS, heart_rate
-import sys 
+import sys
+
 
 def preprocess(syg, FS):
     butter = signal.butter(2, 100, 'lowpass', fs=FS, output='sos')
     syg_butter = signal.sosfiltfilt(butter, syg)
     iir_b, iir_a = signal.iirnotch(50, Q=50, fs=FS)
     syg_iir = signal.filtfilt(iir_b, iir_a, syg_butter)
-    butter2 = signal.butter(5, 2, 'highpass', fs=FS, output='sos')    
+    butter2 = signal.butter(5, 2, 'highpass', fs=FS, output='sos') 
     syg_butter2 = signal.sosfiltfilt(butter2, syg_iir)
     return syg_butter2
+
 
 def find_similar_beats(sig, peaks, cur, xcorr_thr, nHB_thr, HB_start):
     beat_len = len(cur)
@@ -33,6 +33,7 @@ def find_similar_beats(sig, peaks, cur, xcorr_thr, nHB_thr, HB_start):
             break
 
     return similar
+
 
 def generate_AS(sig, peaks, FS):
     xcorr_thr = 0.97
@@ -69,7 +70,7 @@ def generate_AS(sig, peaks, FS):
         segment1 = int(max(0, r - int(0.04*FS)))
         segment2 = int(min(len(aux_hb), r + int(0.04*FS)))
         #print("Segments:", segment1, " ", segment2, "\n")
-        aux_MA=min(MA,len(aux_hb))
+        aux_MA = min(MA, len(aux_hb))
         aux_hb[:segment1] =np.convolve(aux_hb[:segment1], np.ones(aux_MA)/aux_MA, mode='same')
         # Избегаем Value Error, если остаток блока меньше окна усреднения
         # Также не проводим свертку пустого блока
@@ -82,6 +83,7 @@ def generate_AS(sig, peaks, FS):
                 aux_hb[segment2:] = aux_aux_hb[:lng]
         aux_signal[start:end] = aux_hb[:end-start]
     return aux_signal
+
 
 def irm(sig, peaks, FS, cnt=0):
     auxilary_signal = generate_AS(sig, peaks, FS)
@@ -138,6 +140,7 @@ def main(record, freq):
     postprocessed = postprocess(record, irm_signal, freq)
     return postprocessed
 
+
 if __name__ == '__main__':
     NAME = sys.argv[1]
     RECORD = mne.io.read_raw_edf(NAME, preload=True)
@@ -173,8 +176,8 @@ if __name__ == '__main__':
     plt.xticks(np.arange(0, len(preprocessed)+1, 150))
     plt.xlabel('Samples')
     plt.ylabel('MLIImV')
-    plt.plot(record_1[0][:5000], label = 'Исходный сигнал', color='red')
-    plt.plot(preprocessed, label = 'Первый этап', color='#a7a6aa')
+    plt.plot(record_1[0][:5000], label='Исходный сигнал', color='red')
+    plt.plot(preprocessed, label='Первый этап', color='#a7a6aa')
     plt.scatter(result, preprocessed[result], color='green', s=50, marker='*', label='R-пики')
 
     plt.plot(irm_signal, label='Второй этап', color='#57565c')
@@ -182,4 +185,3 @@ if __name__ == '__main__':
     plt.legend()
 
     plt.show()
-
