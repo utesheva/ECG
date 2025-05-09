@@ -5,7 +5,7 @@ import os
 import IRM
 import spkit as sp
 from scipy.ndimage import uniform_filter1d
-
+from scipy.signal import resample
 
 def load_edf_signal(file_path, channel_name=None):
     """
@@ -42,17 +42,22 @@ def main(directory="tests", channel=None):
     """Get mse and snr of the set"""
     edf_files = [f for f in os.listdir(directory) if f.endswith('.edf')]
     results = []
+    noise, fs = load_edf_signal('Noise.edf', 'ECG CM1')
+    noise = np.array(noise[int(19.2*fs):23*fs])
     for edf_file in edf_files:
-        for snr in range(10, 60, 10):
-            print(f"Файл: {edf_file}")
-            ecg, fs = load_edf_signal(os.path.join(directory, edf_file), channel)
-            ecg = ecg[:fs * 60]  # 60 секунд
-            ecg = (ecg - np.mean(ecg)) / np.max(np.abs(ecg))  # Нормализация [-1, 1]
-            noisy_ecg = sp.add_noise(ecg, snr_db=snr)
-            filtered_ecg = IRM.main(noisy_ecg, fs)
-            mse = np.mean((filtered_ecg - ecg) ** 2)
-            #snr = 15 #compute_snr(noisy_ecg, emg)
-            results.append((snr, mse, edf_file))
+        print(f"Файл: {edf_file}")
+        ecg, fs = load_edf_signal(os.path.join(directory, edf_file), channel)
+        ecg = ecg[:fs * 60]  # 60 секунд
+        noise = resample(noise, fs)
+        noise = np.tile(noise, int(np.ceil(len(ecg)/len(noise))))[:len(ecg)]
+        noisy_ecg = ecg + noise
+        filtered_ecg = IRM.main(noisy_ecg, fs)
+        plt.plot(noisy_ecg)
+        plt.plot(filtered_ecg)
+        plt.show()
+        mse = np.mean((filtered_ecg - ecg) ** 2)
+        snr = compute_snr(noisy_ecg, noise)
+        results.append((snr, mse, edf_file))
     return results
 
 
