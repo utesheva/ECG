@@ -4,6 +4,7 @@ import scipy.signal as signal
 import numpy as np
 from QRS import Pan_Tompkins_QRS, heart_rate
 import sys
+import time
 
 
 def preprocess(syg, FS):
@@ -97,23 +98,27 @@ def irm(sig, peaks, FS, cnt=0):
         signal_power = np.sum(np.square(sig ** 2))
         noise_power = np.sum(np.square(noise_butter ** 2))
         snr = 10 * np.log10(signal_power / noise_power)
-        print('SNR', snr)
         if snr > 16:
+            it = 1
             pass
         elif snr > 8:
+            it = 2
             ob = irm(ob, peaks, FS, cnt=1)
         else:
+            it = 3
             ob = irm(ob, peaks, FS, cnt=2)
     elif cnt == 2:
         return irm(ob, peaks, FS, cnt=1)
-
+    if cnt == 0:
+        return ob, it
     return ob
 
 
 def postprocess(sig_before, sig_irm, FS):
     butter = signal.butter(5, 2, 'lowpass', fs=FS, output='sos')
     low = signal.sosfiltfilt(butter, sig_before)
-    return sig_irm + low
+    res = sig_irm + low
+    return res
 
 
 def main(record, freq):
@@ -134,16 +139,18 @@ def main(record, freq):
     result = result[result > 0]
 
     heartRate = (60*freq)/np.average(np.diff(result[1:]))
-    print("Heart Rate", heartRate, "BPM")
 
-    irm_signal = irm(preprocessed, result, freq)
+    irm_signal, it = irm(preprocessed, result, freq)
     postprocessed = postprocess(record, irm_signal, freq)
-    return postprocessed
+    return postprocessed, it
 
 
 if __name__ == '__main__':
     NAME = sys.argv[1]
+    t1 = time.time()
     RECORD = mne.io.read_raw_edf(NAME, preload=True)
+    t2 = time.time()
+    print('get record', t2 - t1)
     INFO = RECORD.info
     FS = int(INFO['sfreq'])
 
@@ -185,3 +192,19 @@ if __name__ == '__main__':
     plt.legend()
 
     plt.show()
+    '''
+    plt.clf()
+    plt.subplot(2, 1, 1)
+    plt.xlabel('Samples')
+    plt.ylabel('MLIImV')
+    plt.plot(record_1[0][:5000], label='Исходный сигнал', color='red')
+    plt.legend()
+    plt.subplot(2, 1, 2)
+    plt.xlabel('Samples')
+    plt.ylabel('MLIImV')
+    plt.plot(record_1[0][:5000], label='Исходный сигнал', color='red')
+    plt.legend()
+
+    plt.savefig('IRM.py')
+    '''
+
