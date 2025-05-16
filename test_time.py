@@ -29,7 +29,7 @@ def load_edf_signal(file_path, channel_name=None):
     ecg = data[0]
     return ecg, fs
 
-def main(directory="tests", channel=None):
+def main(directory="SimECG/tests", channel=None):
     """Get mse and snr of the set"""
     edf_files = [f for f in os.listdir(directory) if f.endswith('.edf')]
     results = {'irm1':[], 'irm2': [], 'irm3': [], 'db8':[]}
@@ -56,3 +56,10 @@ if __name__ == '__main__':
     print('IRM2 time:', sum(res['irm2']) / len(res['irm2']))
     print('IRM3 time:', sum(res['irm3']) / len(res['irm3']))
     print('DB8 time', sum(res['db8']) / len(res['db8']))
+    res2 = main(directory='clean')
+    res['irm1'] = res['irm1'] + res2['irm1']
+    res['irm2'] = res['irm2'] + res2['irm2']
+    res['irm3'] = res['irm3'] + res2['irm3']
+    print('IRM1 time:', sum(res['irm1']) / len(res['irm1']))
+    print('IRM2 time:', sum(res['irm2']) / len(res['irm2']))
+    print('IRM3 time:', sum(res['irm3']) / len(res['irm3']))

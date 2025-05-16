@@ -8,6 +8,9 @@ import mne
 import argparse
 import os
 import pdb
+from scipy.signal import resample
+import IRM
+from scipy.ndimage import uniform_filter1d
 
 def load_edf_signal(file_path, channel_name=None):
     """
@@ -34,6 +37,50 @@ def load_edf_signal(file_path, channel_name=None):
     ecg = data[0]
     return ecg, fs
 
+def compute_snr(signal, noise):
+    """Computing SNR"""
+    power_signal = np.mean(signal ** 2)
+    power_noise = np.mean(noise ** 2)
+    return 10 * np.log10(power_signal / power_noise)
+
+def add_noise(ecg, fs, noise, noise_fs, snr):
+    if fs != noise_fs:
+        noise = resample(noise, fs)
+
+    if len(ecg) < len(noise):
+        noise=noise[:len(ecg)]
+    else:
+        noise1 = np.array([])
+        while len(noise1) < len(ecg):
+            noise1 = np.concatenate((noise1, noise))
+        noise = noise1[:len(ecg)]
+
+    power_signal = np.mean(ecg ** 2)
+    power_noise = np.mean(noise ** 2)
+    scale=np.sqrt(power_signal/(power_noise*10**(snr/10)))
+
+    noisy_ecg = ecg + scale*noise
+    return noisy_ecg
+
+
+def main(directory="clean", channel=None, noise_file='emg1.edf'):
+    """Get mse and snr of the set"""
+    edf_files = [f for f in os.listdir(directory) if f.endswith('.edf')]
+    results = []
+    noise, noise_fs = load_edf_signal(noise_file)
+    for edf_file in edf_files:
+        print(f"Файл: {edf_file}")
+        ecg, fs = load_edf_signal(os.path.join(directory, edf_file), channel)
+        ecg = ecg[:fs*60]
+        print('len of signal:', len(ecg))
+        for snr in range(1, 31):
+            noisy_ecg = add_noise(ecg, fs, noise, noise_fs, snr)
+            filtered_ecg, it = IRM.main(noisy_ecg, fs)
+            mse = np.mean((filtered_ecg - ecg) ** 2)
+            results.append((snr, mse, edf_file))
+    return results
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('--signal', type=str, help='Путь к EDF-файлу сигнала')
@@ -45,43 +92,34 @@ if __name__ == "__main__":
                         help='Желаемое отношение сигнал/шум в децибелах')
     args = parser.parse_args()
 
-    if args.signal:
-        ecg, fs = load_edf_signal(args.signal)
-    if args.noise:
-        noise, fs_noise = load_edf_signal(args.noise)
-
-    if fs != fs_noise:
-        raise ValueError ("current version of this program requires the same sampling rate for signal and noise")
-    #Выравнивание длины шума по сигналу
-    if len(ecg) < len(noise):
-        noise=noise[:len(ecg)]
-    else:
-        noise1 = np.array([])
-        while len(noise1) < len(ecg):
-            noise1 = np.concatenate((noise1, noise))
-        noise = noise1[:len(ecg)]
-
-    power_signal = np.mean(ecg ** 2)
-    power_noise = np.mean(noise ** 2)
-    scale=np.sqrt(power_signal/(power_noise*10**(args.snr/10)))
-
-    noisy_ecg = ecg + scale*noise
-    data=np.array([noisy_ecg])
-    pdb.set_trace()
-#    data[0]=noisy_ecg
-# Запись выходного файла
-    mne.export.export_raw(fname="noised.edf", raw=mne.io.RawArray(data=data, info=mne.create_info(ch_names=1, sfreq=fs, ch_types='ecg')),
-                      fmt='edf', overwrite=True)
-
-    t = np.arange(len(ecg)) / fs
-    plt.figure(figsize=(12, 10))
-
-    plt.subplot(3, 1, 1)
-    plt.plot(t, noisy_ecg, label='сигнал+шум')
-    plt.title('Исходный зашумлённый сигнал')
-    plt.legend()
-
-    plt.plot(t, ecg, '--', alpha=0.7, label='Исходный ЭКГ')
-    plt.title('Результат фильтрации')
-    plt.legend()
+    
+    #mne.export.export_raw(fname="noised.edf", raw=mne.io.RawArray(data=data, info=mne.create_info(ch_names=1, sfreq=fs, ch_types='ecg')),fmt='edf', overwrite=True)
+    results = main()
+    results.sort(key=lambda x: x[0])
+    snrs = [r[0] for r in results]
+    mses = [r[1] for r in results]
+    '''
+    plt.figure(figsize=(8, 6))
+    plt.plot(snrs, mses, marker='o', markersize=5)
+    plt.xlabel('SNR (dB)')
+    plt.ylabel('MSE')
+    plt.title('Зависимость MSE от SNR при удалении EMG шума')
+    plt.grid(True)
+    plt.tight_layout()
+    #plt.savefig("mse_vs_snr_1.png")
     plt.show()
+    '''
+    mse_smooth = uniform_filter1d(mses, size=5)
+
+    plt.figure(figsize=(10, 6))
+    plt.plot(snrs, mse_smooth, label="Сглаженный MSE", color="navy")
+    plt.scatter(snrs, mses, s=20, color="skyblue", label="Исходные данные")
+
+    plt.grid(True)
+    plt.title("Зависимость MSE от SNR при удалении EMG шума")
+    plt.xlabel("SNR (dB)")
+    plt.ylabel("MSE")
+    plt.legend()
+    plt.tight_layout()
+    plt.savefig('snr.png')
+    #mne.export.export_raw(fname="noised.edf", raw=mne.io.RawArray(data=data, info=mne.create_info(ch_names=1, sfreq=fs, ch_types='ecg')),fmt='edf', overwrite=True)

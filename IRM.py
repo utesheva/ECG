@@ -158,7 +158,7 @@ if __name__ == '__main__':
     print(INFO)
 
     record_1, times = RECORD.get_data(return_times=True, picks=channels[0])
-    preprocessed = np.array(preprocess(record_1[0][:5000], FS))
+    preprocessed = np.array(preprocess(record_1[0], FS))
 
     QRS_detector = Pan_Tompkins_QRS(FS)
     QRS_detector.solve(preprocessed)
@@ -177,13 +177,13 @@ if __name__ == '__main__':
     heartRate = (60*FS)/np.average(np.diff(result[1:]))
     print("Heart Rate", heartRate, "BPM")
 
-    irm_signal = irm(preprocessed, result, FS)
-    postprocessed = postprocess(record_1[0][:5000], irm_signal, FS)
+    irm_signal, it = irm(preprocessed, result, FS)
+    postprocessed = postprocess(record_1[0], irm_signal, FS)
 
     plt.xticks(np.arange(0, len(preprocessed)+1, 150))
     plt.xlabel('Samples')
     plt.ylabel('MLIImV')
-    plt.plot(record_1[0][:5000], label='Исходный сигнал', color='red')
+    plt.plot(record_1[0], label='Исходный сигнал', color='red')
     plt.plot(preprocessed, label='Первый этап', color='#a7a6aa')
     plt.scatter(result, preprocessed[result], color='green', s=50, marker='*', label='R-пики')
 
