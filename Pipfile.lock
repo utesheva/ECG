@@ -612,7 +612,7 @@
                 "sha256:aba0f4dc9ed8013c424088f68a5c226f7d6097ed89b246d7749c2ec4175c6adb"
             ],
             "markers": "python_version >= '3.7'",
-            "version": "==3.1.5"
+            "version": ">=3.1.6"
         },
         "joblib": {
             "hashes": [
