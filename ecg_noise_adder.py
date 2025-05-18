@@ -11,6 +11,7 @@ import pdb
 from scipy.signal import resample
 import IRM
 from scipy.ndimage import uniform_filter1d
+import db8
 
 def load_edf_signal(file_path, channel_name=None):
     """
@@ -77,6 +78,9 @@ def main(directory="clean", channel=None, noise_file='emg1.edf'):
             noisy_ecg = add_noise(ecg, fs, noise, noise_fs, snr)
             filtered_ecg, it = IRM.main(noisy_ecg, fs)
             mse = np.mean((filtered_ecg - ecg) ** 2)
+            plt.plot(noisy_ecg)
+            plt.plot(filtered_ecg)
+            plt.show()
             results.append((snr, mse, edf_file))
     return results
 
@@ -121,5 +125,5 @@ if __name__ == "__main__":
     plt.ylabel("MSE")
     plt.legend()
     plt.tight_layout()
-    plt.savefig('snr.png')
+    plt.savefig('snr2.png')
     #mne.export.export_raw(fname="noised.edf", raw=mne.io.RawArray(data=data, info=mne.create_info(ch_names=1, sfreq=fs, ch_types='ecg')),fmt='edf', overwrite=True)

@@ -31,12 +31,10 @@ def main(directory="tests", channel=None):
     """Get mse and snr of the set"""
     edf_files = [f for f in os.listdir(directory) if f.endswith('.edf')]
     results = {}
-    noise, fs = load_edf_signal('Noise.edf', 'ECG CM1')
-    noise = np.array(noise[int(19.2*fs):23*fs])
     for edf_file in edf_files:
         print(f"Файл: {edf_file}")
         ecg, fs = load_edf_signal(os.path.join(directory, edf_file), channel)
-        ecg = ecg[:fs * 60]  # 60 секунд
+        ecg = ecg[:fs * 30]  # 60 секунд
         filtered_ecg = IRM.main(ecg, fs)
         results[edf_file] = [ecg, filtered_ecg]
     return results

@@ -100,17 +100,15 @@ def irm(sig, peaks, FS, cnt=0):
         snr = 10 * np.log10(signal_power / noise_power)
         if snr > 16:
             it = 1
-            pass
         elif snr > 8:
             it = 2
+            t2 = time.time()
             ob = irm(ob, peaks, FS, cnt=1)
         else:
             it = 3
+            start = time.time()
             ob = irm(ob, peaks, FS, cnt=2)
-    elif cnt == 2:
-        return irm(ob, peaks, FS, cnt=1)
-    if cnt == 0:
-        return ob, it
+            ob = irm(ob, peaks, FS, cnt=2)
     return ob
 
 
@@ -140,9 +138,9 @@ def main(record, freq):
 
     heartRate = (60*freq)/np.average(np.diff(result[1:]))
 
-    irm_signal, it = irm(preprocessed, result, freq)
+    irm_signal = irm(preprocessed, result, freq)
     postprocessed = postprocess(record, irm_signal, freq)
-    return postprocessed, it
+    return postprocessed
 
 
 if __name__ == '__main__':
@@ -150,14 +148,13 @@ if __name__ == '__main__':
     t1 = time.time()
     RECORD = mne.io.read_raw_edf(NAME, preload=True)
     t2 = time.time()
-    print('get record', t2 - t1)
     INFO = RECORD.info
     FS = int(INFO['sfreq'])
 
     channels = RECORD.ch_names
-    print(INFO)
 
     record_1, times = RECORD.get_data(return_times=True, picks=channels[0])
+    record_1 = record_1[:60*FS]
     preprocessed = np.array(preprocess(record_1[0], FS))
 
     QRS_detector = Pan_Tompkins_QRS(FS)
@@ -177,7 +174,7 @@ if __name__ == '__main__':
     heartRate = (60*FS)/np.average(np.diff(result[1:]))
     print("Heart Rate", heartRate, "BPM")
 
-    irm_signal, it = irm(preprocessed, result, FS)
+    irm_signal = irm(preprocessed, result, FS)
     postprocessed = postprocess(record_1[0], irm_signal, FS)
 
     plt.xticks(np.arange(0, len(preprocessed)+1, 150))
