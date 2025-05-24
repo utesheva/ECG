@@ -27,7 +27,6 @@ def load_edf_signal(file_path, channel_name=None):
 
     raw = mne.io.read_raw_edf(file_path, preload=True, verbose=False)
     channels = raw.ch_names
-    print(channels)
     fs = int(raw.info['sfreq'])
 
     if channel_name is None:
