@@ -67,8 +67,7 @@ if __name__ == "__main__":
 
     noisy_ecg = ecg + scale*noise
     data=np.array([noisy_ecg])
-#    data[0]=noisy_ecg
-# Запись выходного файла
+    
     mne.export.export_raw(fname="noised.edf", raw=mne.io.RawArray(data=data, info=mne.create_info(ch_names=1, sfreq=fs, ch_types='ecg')),
                       fmt='edf', overwrite=True)
 

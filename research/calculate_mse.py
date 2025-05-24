@@ -38,11 +38,6 @@ def load_edf_signal(file_path, channel_name=None):
     ecg = data[0]
     return ecg, fs
 
-def compute_snr(signal, noise):
-    """Computing SNR"""
-    power_signal = np.mean(signal ** 2)
-    power_noise = np.mean(noise ** 2)
-    return 10 * np.log10(power_signal / power_noise)
 
 def add_noise(ecg, fs, noise, noise_fs, snr):
     if fs != noise_fs:
@@ -64,55 +59,36 @@ def add_noise(ecg, fs, noise, noise_fs, snr):
     return noisy_ecg
 
 
-def main(directory="clean", channel=None, noise_file='emg1.edf'):
+def main(directory='tests', channel=None, noise_file='emg1.edf'):
     """Get mse and snr of the set"""
     edf_files = [f for f in os.listdir(directory) if f.endswith('.edf')]
     results = []
     noise, noise_fs = load_edf_signal(noise_file)
+    
     for edf_file in edf_files:
         print(f"Файл: {edf_file}")
         ecg, fs = load_edf_signal(os.path.join(directory, edf_file), channel)
         ecg = ecg[:fs*60]
-        print('len of signal:', len(ecg))
+        
         for snr in range(1, 31):
             noisy_ecg = add_noise(ecg, fs, noise, noise_fs, snr)
-            filtered_ecg, it = IRM.main(noisy_ecg, fs)
+            filtered_ecg = IRM.main(noisy_ecg, fs)
             mse = np.mean((filtered_ecg - ecg) ** 2)
-            plt.plot(noisy_ecg)
-            plt.plot(filtered_ecg)
-            plt.show()
             results.append((snr, mse, edf_file))
     return results
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument('--signal', type=str, help='Путь к EDF-файлу сигнала')
+    parser.add_argument('--direсtory', type=str, help='Путь к директории с EDF-файламис сигналом')
     parser.add_argument('--noise', type=str,
                         help='Путь к EDF-файлу шума')
-    parser.add_argument('-c', '--sig_channel', type=str,
-                        help='Имя канала EDF для полезного сигнала (по умолчанию первый)')
-    parser.add_argument('--snr' , type=int,
-                        help='Желаемое отношение сигнал/шум в децибелах')
     args = parser.parse_args()
-
     
-    #mne.export.export_raw(fname="noised.edf", raw=mne.io.RawArray(data=data, info=mne.create_info(ch_names=1, sfreq=fs, ch_types='ecg')),fmt='edf', overwrite=True)
-    results = main()
+    results = main(directory=args.directory, noise_file=args.noise)
     results.sort(key=lambda x: x[0])
     snrs = [r[0] for r in results]
     mses = [r[1] for r in results]
-    '''
-    plt.figure(figsize=(8, 6))
-    plt.plot(snrs, mses, marker='o', markersize=5)
-    plt.xlabel('SNR (dB)')
-    plt.ylabel('MSE')
-    plt.title('Зависимость MSE от SNR при удалении EMG шума')
-    plt.grid(True)
-    plt.tight_layout()
-    #plt.savefig("mse_vs_snr_1.png")
-    plt.show()
-    '''
     mse_smooth = uniform_filter1d(mses, size=5)
 
     plt.figure(figsize=(10, 6))
@@ -126,4 +102,3 @@ if __name__ == "__main__":
     plt.legend()
     plt.tight_layout()
     plt.savefig('snr2.png')
-    #mne.export.export_raw(fname="noised.edf", raw=mne.io.RawArray(data=data, info=mne.create_info(ch_names=1, sfreq=fs, ch_types='ecg')),fmt='edf', overwrite=True)

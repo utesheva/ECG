@@ -189,19 +189,4 @@ if __name__ == '__main__':
     plt.legend()
 
     plt.show()
-    '''
-    plt.clf()
-    plt.subplot(2, 1, 1)
-    plt.xlabel('Samples')
-    plt.ylabel('MLIImV')
-    plt.plot(record_1[0][:5000], label='Исходный сигнал', color='red')
-    plt.legend()
-    plt.subplot(2, 1, 2)
-    plt.xlabel('Samples')
-    plt.ylabel('MLIImV')
-    plt.plot(record_1[0][:5000], label='Исходный сигнал', color='red')
-    plt.legend()
-
-    plt.savefig('IRM.py')
-    '''
 

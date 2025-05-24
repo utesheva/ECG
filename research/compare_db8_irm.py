@@ -4,6 +4,7 @@ import os
 import mne
 import numpy as np
 import matplotlib.pyplot as plt
+import sys
 
 def load_edf_signal(file_path, channel_name=None):
     """
@@ -28,31 +29,29 @@ def load_edf_signal(file_path, channel_name=None):
     ecg = data[0]
     return ecg, fs
 
-def main(file="tests/P10_1_Ag-AgCl.edf", channel=None):
-    results = {}
+def main(file, channel=None):
     ecg, fs = load_edf_signal(file, channel)
-    ecg = ecg[:fs * 10]  # 30 секунд
-    filtered_ecg_1 = IRM.main(ecg, fs)
-    filtered_ecg_2 = db8.main(ecg, fs)
+    ecg = ecg[:fs * 60]  # 60 секунд
+    irm = IRM.main(ecg, fs)
+    db = db8.main(ecg, fs)
     plt.subplot(3, 1, 1)
     plt.plot(ecg, label = 'Исходный сигнал', color='red')
     plt.xlabel('Samples')
     plt.ylabel('MLIImV')
     plt.legend()
-
     plt.subplot(3, 1, 2)
-    plt.plot(filtered_ecg_2, label = 'Сигнал после фильтрации DB-8', color='blue')
+    plt.plot(db, label = 'Сигнал после фильтрации DB-8', color='blue')
     plt.xlabel('Samples')
     plt.ylabel('MLIImV')
     plt.legend()
-
     plt.subplot(3, 1, 3)
-    plt.plot(filtered_ecg_1, label = 'Сигнал после фильтрации IRM', color='blue')
+    plt.plot(irm, label = 'Сигнал после фильтрации IRM', color='blue')
     plt.xlabel('Samples')
     plt.ylabel('MLIImV')
     plt.legend()
-
-    plt.savefig('Compare.png')
+    plt.tight_layout()
+    plt.savefig('Compare DB-8 and IRM.png')
 
 if __name__ == '__main__':
-    main()
+    main(sys.argv[1])
+

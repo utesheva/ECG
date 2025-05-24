@@ -1,3 +1,4 @@
+import time
 import IRM
 import db8
 import os
@@ -28,30 +29,18 @@ def load_edf_signal(file_path, channel_name=None):
     ecg = data[0]
     return ecg, fs
 
-def main(file = 'tests/P2_1_ORB.edf', channel=None):
-    """Get mse and snr of the set"""
-    ecg, fs = load_edf_signal(file, channel)
-    ecg = ecg[:fs * 60]  # 60 секунд
-    irm = IRM.main(ecg, fs)
-    db = db8.main(ecg, fs)
-    plt.subplot(3, 1, 1)
-    plt.plot(ecg, label = 'Исходный сигнал', color='red')
-    plt.xlabel('Samples')
-    plt.ylabel('MLIImV')
-    plt.legend()
-    plt.subplot(3, 1, 2)
-    plt.plot(db, label = 'Сигнал после фильтрации DB-8', color='blue')
-    plt.xlabel('Samples')
-    plt.ylabel('MLIImV')
-    plt.legend()
-    plt.subplot(3, 1, 3)
-    plt.plot(irm, label = 'Сигнал после фильтрации IRM', color='blue')
-    plt.xlabel('Samples')
-    plt.ylabel('MLIImV')
-    plt.legend()
-    plt.tight_layout()
-    plt.savefig('Compare.png')
+def main(directory="tests", channel=None):
+    edf_files = [f for f in os.listdir(directory) if f.endswith('.edf')]
+    results = []
+    for edf_file in edf_files:
+        ecg, fs = load_edf_signal(os.path.join(directory, edf_file), channel)
+        ecg = ecg[:fs*60]
+        t1 = time.time()
+        filtered_irm = IRM.main(ecg, fs)
+        t2 = time.time()
+        results.append((t2-t1) / len(ecg) * 1000)
+    return results
 
 if __name__ == '__main__':
-    main()
-
+    res = main()
+    print(sum(res) / len(res))
