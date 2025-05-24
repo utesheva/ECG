@@ -1,6 +1,8 @@
 import sys
 import mne
 from . import main
+import matplotlib.pyplot as plt
+import numpy as np
 
 if __name__ == '__main__':
     NAME = sys.argv[1]
@@ -10,7 +12,7 @@ if __name__ == '__main__':
 
     channels = RECORD.ch_names
 
-    record_1, times=RECORD.get_data(return_times=True, picks=channels[0])
+    record_1, times = RECORD.get_data(return_times=True, picks=channels[0])
 
     result = main(record_1[0], FS)
 

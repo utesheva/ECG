@@ -7,9 +7,9 @@ import IRM
 import db8
 import os
 import mne
-import numpy as np
 import matplotlib.pyplot as plt
 import argparse
+
 
 def load_edf_signal(file_path, channel_name=None):
     """
@@ -34,23 +34,24 @@ def load_edf_signal(file_path, channel_name=None):
     ecg = data[0]
     return ecg, fs
 
+
 def main(file, channel=None):
     ecg, fs = load_edf_signal(file_path=file, channel_name=channel)
     ecg = ecg[:fs * 60]  # 60 секунд
     irm = IRM.main(ecg, fs)
     db = db8.main(ecg, fs)
     plt.subplot(3, 1, 1)
-    plt.plot(ecg, label = 'Исходный сигнал', color='red')
+    plt.plot(ecg, label='Исходный сигнал', color='red')
     plt.xlabel('Samples')
     plt.ylabel('MLIImV')
     plt.legend()
     plt.subplot(3, 1, 2)
-    plt.plot(db, label = 'Сигнал после фильтрации DB-8', color='blue')
+    plt.plot(db, label='Сигнал после фильтрации DB-8', color='blue')
     plt.xlabel('Samples')
     plt.ylabel('MLIImV')
     plt.legend()
     plt.subplot(3, 1, 3)
-    plt.plot(irm, label = 'Сигнал после фильтрации IRM', color='blue')
+    plt.plot(irm, label='Сигнал после фильтрации IRM', color='blue')
     plt.xlabel('Samples')
     plt.ylabel('MLIImV')
     plt.legend()
@@ -65,4 +66,3 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     main(file=args.file, channel=args.sig_channel)
-

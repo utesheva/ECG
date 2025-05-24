@@ -8,8 +8,6 @@ import IRM
 import db8
 import os
 import mne
-import numpy as np
-import matplotlib.pyplot as plt
 import argparse
 
 def load_edf_signal(file_path, channel_name=None):
@@ -42,9 +40,9 @@ def main(directory="tests", channel=None):
         ecg, fs = load_edf_signal(os.path.join(directory, edf_file), channel)
         ecg = ecg[:fs*60]
         t1 = time.time()
-        filtered_irm = IRM.main(ecg, fs)
+        IRM.main(ecg, fs)
         t2 = time.time()
-        results.append((t2-t1) / len(ecg) * 1000)
+        results.append((t2 - t1) / len(ecg) * 1000)
     return results
 
 if __name__ == '__main__':

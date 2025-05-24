@@ -13,7 +13,6 @@ if __name__ == '__main__':
     channels = RECORD.ch_names
 
     record_1, times = RECORD.get_data(return_times=True, picks=channels[0])
-    
     result = main(record_1[0], FS)
 
     plt.xticks(np.arange(0, len(result)+1, 150))
@@ -24,4 +23,3 @@ if __name__ == '__main__':
     plt.legend()
 
     plt.show()
-
