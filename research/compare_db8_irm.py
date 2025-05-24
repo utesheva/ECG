@@ -1,10 +1,15 @@
+import sys
+from pathlib import Path
+
+sys.path.append(str(Path(__file__).parent.parent))
+
 import IRM
 import db8
 import os
 import mne
 import numpy as np
 import matplotlib.pyplot as plt
-import sys
+import argparse
 
 def load_edf_signal(file_path, channel_name=None):
     """
@@ -30,7 +35,7 @@ def load_edf_signal(file_path, channel_name=None):
     return ecg, fs
 
 def main(file, channel=None):
-    ecg, fs = load_edf_signal(file, channel)
+    ecg, fs = load_edf_signal(file_path=file, channel_name=channel)
     ecg = ecg[:fs * 60]  # 60 секунд
     irm = IRM.main(ecg, fs)
     db = db8.main(ecg, fs)
@@ -53,5 +58,11 @@ def main(file, channel=None):
     plt.savefig('Compare DB-8 and IRM.png')
 
 if __name__ == '__main__':
-    main(sys.argv[1])
+    parser = argparse.ArgumentParser()
+    parser.add_argument('-f', '--file', type=str, help='Путь к EDF-файлу c сигналом')
+    parser.add_argument('-c', '--sig_channel', type=str,
+                        help='Имя канала EDF для полезного сигнала (по умолчанию первый)')
+    args = parser.parse_args()
+
+    main(file=args.file, channel=args.sig_channel)
 

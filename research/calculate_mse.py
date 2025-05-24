@@ -3,15 +3,18 @@
 
 import numpy as np
 import matplotlib.pyplot as plt
-import wfdb
 import mne
 import argparse
 import os
-import pdb
 from scipy.signal import resample
-import IRM
 from scipy.ndimage import uniform_filter1d
-import db8
+
+import sys
+from pathlib import Path
+
+sys.path.append(str(Path(__file__).parent.parent))
+
+import IRM
 
 def load_edf_signal(file_path, channel_name=None):
     """
@@ -80,12 +83,12 @@ def main(directory='tests', channel=None, noise_file='emg1.edf'):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument('--direсtory', type=str, help='Путь к директории с EDF-файламис сигналом')
-    parser.add_argument('--noise', type=str,
+    parser.add_argument('-d', '--direсtory', type=str, help='Путь к директории с EDF-файлами')
+    parser.add_argument('-n', '--noise', type=str,
                         help='Путь к EDF-файлу шума')
     args = parser.parse_args()
     
-    results = main(directory=args.directory, noise_file=args.noise)
+    results = main(directory=args.direсtory, noise_file=args.noise)
     results.sort(key=lambda x: x[0])
     snrs = [r[0] for r in results]
     mses = [r[1] for r in results]
@@ -101,4 +104,4 @@ if __name__ == "__main__":
     plt.ylabel("MSE")
     plt.legend()
     plt.tight_layout()
-    plt.savefig('snr2.png')
+    plt.savefig('snr.png')

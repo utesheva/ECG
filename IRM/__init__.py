@@ -2,9 +2,8 @@ from matplotlib import pyplot as plt
 import mne
 import scipy.signal as signal
 import numpy as np
-from QRS import Pan_Tompkins_QRS, heart_rate
+from QRS_detection import Pan_Tompkins_QRS, heart_rate
 import sys
-import time
 
 
 def preprocess(syg, FS):
@@ -102,11 +101,9 @@ def irm(sig, peaks, FS, cnt=0):
             it = 1
         elif snr > 8:
             it = 2
-            t2 = time.time()
             ob = irm(ob, peaks, FS, cnt=1)
         else:
             it = 3
-            start = time.time()
             ob = irm(ob, peaks, FS, cnt=2)
             ob = irm(ob, peaks, FS, cnt=2)
     return ob
@@ -141,52 +138,4 @@ def main(record, freq):
     irm_signal = irm(preprocessed, result, freq)
     postprocessed = postprocess(record, irm_signal, freq)
     return postprocessed
-
-
-if __name__ == '__main__':
-    NAME = sys.argv[1]
-    t1 = time.time()
-    RECORD = mne.io.read_raw_edf(NAME, preload=True)
-    t2 = time.time()
-    INFO = RECORD.info
-    FS = int(INFO['sfreq'])
-
-    channels = RECORD.ch_names
-
-    record_1, times = RECORD.get_data(return_times=True, picks=channels[0])
-    record_1 = record_1[:60*FS]
-    preprocessed = np.array(preprocess(record_1[0], FS))
-
-    QRS_detector = Pan_Tompkins_QRS(FS)
-    QRS_detector.solve(preprocessed)
-
-    hr = heart_rate(preprocessed, FS)
-
-    result = hr.find_r_peaks()
-    result1 = []
-    for i in range(len(result)-1):
-        if result[i] != result[i+1]:
-            result1.append(result[i])
-    result = np.array(result1)
-
-    result = result[result > 0]
-
-    heartRate = (60*FS)/np.average(np.diff(result[1:]))
-    print("Heart Rate", heartRate, "BPM")
-
-    irm_signal = irm(preprocessed, result, FS)
-    postprocessed = postprocess(record_1[0], irm_signal, FS)
-
-    plt.xticks(np.arange(0, len(preprocessed)+1, 150))
-    plt.xlabel('Samples')
-    plt.ylabel('MLIImV')
-    plt.plot(record_1[0], label='Исходный сигнал', color='red')
-    plt.plot(preprocessed, label='Первый этап', color='#a7a6aa')
-    plt.scatter(result, preprocessed[result], color='green', s=50, marker='*', label='R-пики')
-
-    plt.plot(irm_signal, label='Второй этап', color='#57565c')
-    plt.plot(postprocessed, label='Результат', color='blue')
-    plt.legend()
-
-    plt.show()
 

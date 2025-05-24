@@ -1,3 +1,8 @@
+import sys
+from pathlib import Path
+
+sys.path.append(str(Path(__file__).parent.parent))
+
 import time
 import IRM
 import db8
@@ -5,6 +10,7 @@ import os
 import mne
 import numpy as np
 import matplotlib.pyplot as plt
+import argparse
 
 def load_edf_signal(file_path, channel_name=None):
     """
@@ -42,5 +48,10 @@ def main(directory="tests", channel=None):
     return results
 
 if __name__ == '__main__':
-    res = main()
+    parser = argparse.ArgumentParser()
+    parser.add_argument('-d', '--directory', type=str, help='Путь к директоии с EDF-файлами')
+    parser.add_argument('-c', '--sig_channel', type=str,
+                        help='Имя канала EDF для полезного сигнала (по умолчанию первый)')
+    args = parser.parse_args()
+    res = main(directory=args.directory, channel=args.sig_channel)
     print(sum(res) / len(res))
