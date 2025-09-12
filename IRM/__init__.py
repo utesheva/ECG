@@ -127,7 +127,6 @@ def main(record, freq):
     result = result[result > 0]
 
     heartRate = (60*freq)/np.average(np.diff(result[1:]))
-    print('Heart rate:', heartRate)
 
     irm_signal = irm(preprocessed, result, freq)
     postprocessed = postprocess(record, irm_signal, freq)

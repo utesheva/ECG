@@ -5,7 +5,7 @@ sys.path.append(str(Path(__file__).parent.parent))
 
 import time
 import IRM
-import db8
+import DB8
 import os
 import mne
 import argparse
